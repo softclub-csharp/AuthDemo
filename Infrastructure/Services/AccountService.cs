@@ -18,17 +18,18 @@ public class AccountService : IAccountService
     private readonly UserManager<IdentityUser> _userManager;
     private readonly DataContext _context;
     private readonly IMapper _mapper;
+    private readonly RoleManager<IdentityRole> _roleManager;
 
     public AccountService(
         IConfiguration configuration, 
         UserManager<IdentityUser> userManager, 
-        DataContext context, IMapper mapper)
+        DataContext context, IMapper mapper, RoleManager<IdentityRole> roleManager)
     {
-       
         _configuration = configuration;
         _userManager = userManager;
         _context = context;
         _mapper = mapper;
+        _roleManager = roleManager;
     }
     
     public async Task<Response<IdentityResult>> Register(RegisterDto registerDto)
@@ -65,12 +66,36 @@ public class AccountService : IAccountService
         var users = _userManager.Users.ToList();
         return new Response<List<UserDto>>(_mapper.Map<List<UserDto>>(users));
     }
+    
+    public async Task<Response<List<RoleDto>>> GetRoles()
+    {
+        var roles = _context.Roles.ToList();
+        return new Response<List<RoleDto>>(_mapper.Map<List<RoleDto>>(roles));
+    }
+    
+    public async Task<Response<RoleDto>> AddRole(RoleDto model)
+    {
+        var role = new IdentityRole(model.Name);
+        var result = await _roleManager.CreateAsync(role);
+        if (result.Succeeded)
+        {
+            return new Response<RoleDto>(HttpStatusCode.OK, new List<string>() { "Role created successfully" });
+        }
+        else 
+            return new Response<RoleDto>(HttpStatusCode.BadRequest, new List<string>(){"Role creation failed"});
+    }
 
+    public async Task<Response<AssignRoleDto>> AssignUserRole(AssignRoleDto model)
+    {
+        var role = await _context.Roles.FindAsync(model.RoleId);
+        var user = await _context.Users.FindAsync(model.UserId);
+        await _userManager.AddToRoleAsync(user, role.Name);
+        return new Response<AssignRoleDto>(model);
+    }
 
     private async Task<TokenDto> GenerateJWTToken(IdentityUser user)
     {
-        return await Task.Run(() =>
-        {
+        
             var tokenHandler = new JwtSecurityTokenHandler();
             var key = Encoding.ASCII.GetBytes(_configuration["Jwt:Key"]);
             var claims = new List<Claim>
@@ -78,8 +103,16 @@ public class AccountService : IAccountService
                 new Claim(ClaimTypes.NameIdentifier, user.Id),
                 new Claim(ClaimTypes.Name, user.UserName),
                 new Claim(ClaimTypes.Email, user.Email),
-                new Claim(ClaimTypes.Role,"Admin")
             };
+            
+            //get all roles belonging to the user
+            var roles = await _userManager.GetRolesAsync(user);
+            //add all roles into claims
+            foreach (var role in roles)
+            {
+                claims.Add(new Claim(ClaimTypes.Role,role));
+            }
+            //fill token 
             var tokenDescriptor = new SecurityTokenDescriptor
             {
                 Subject = new ClaimsIdentity(claims),
@@ -92,12 +125,8 @@ public class AccountService : IAccountService
             var token = tokenHandler.CreateToken(tokenDescriptor);
             var tokenString = tokenHandler.WriteToken(token);
             return new TokenDto(tokenString);
-        });
+    
 
     }
     
-    
-
-
-
 }
