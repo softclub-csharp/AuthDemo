@@ -7,6 +7,7 @@ using Domain.Dtos;
 using Domain.Wrapper;
 using Infrastructure.Data;
 using Microsoft.AspNetCore.Identity;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
 
@@ -63,7 +64,20 @@ public class AccountService : IAccountService
 
     public async Task<Response<List<UserDto>>> GetUsers()
     {
-        var users = _userManager.Users.ToList();
+        var users = await _context.Users.Select(x=>new UserDto()
+        {
+            Id = x.Id,
+            Username = x.UserName,
+            PhoneNumber = x.PhoneNumber,
+            Roles = (from ur in _context.UserRoles
+                    join r in _context.Roles on ur.RoleId equals r.Id 
+                    where x.Id == ur.UserId select new RoleDto()
+                    {
+                        Id = r.Id,
+                        Name = r.Name
+                    }).ToList()
+        }).ToListAsync();
+        
         return new Response<List<UserDto>>(_mapper.Map<List<UserDto>>(users));
     }
     
@@ -87,10 +101,17 @@ public class AccountService : IAccountService
 
     public async Task<Response<AssignRoleDto>> AssignUserRole(AssignRoleDto model)
     {
-        var role = await _context.Roles.FindAsync(model.RoleId);
-        var user = await _context.Users.FindAsync(model.UserId);
-        await _userManager.AddToRoleAsync(user, role.Name);
-        return new Response<AssignRoleDto>(model);
+        try
+        {
+            var role = await _context.Roles.FirstOrDefaultAsync(x=>x.Name.ToUpper() == model.RoleName.ToUpper());
+            var user = await _context.Users.FindAsync(model.UserId);
+            await _userManager.AddToRoleAsync(user, role.Name);
+            return new Response<AssignRoleDto>(model);
+        }
+        catch (Exception ex)
+        {
+            return new Response<AssignRoleDto>(HttpStatusCode.InternalServerError, new List<string>() { ex.Message });
+        }
     }
 
     private async Task<TokenDto> GenerateJWTToken(IdentityUser user)

@@ -12,5 +12,6 @@ public class InfrastructureProfile : Profile
     {
         CreateMap<IdentityUser, UserDto>();
         CreateMap<IdentityRole, RoleDto>();
+        CreateMap<Country, CountryDto>();
     }
 }

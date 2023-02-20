@@ -17,6 +17,7 @@ var connection = builder.Configuration.GetConnectionString("DefaultConnection");
 builder.Services.AddDbContext<DataContext>(conf => conf.UseNpgsql(connection));
 builder.Services.AddControllers();
 builder.Services.AddScoped<IAccountService, AccountService>();//configure automapper
+builder.Services.AddScoped<ICountryService, CountryService>();//configure automapper
 builder.Services.AddAutoMapper(typeof(InfrastructureProfile));
 
 //jwt config

@@ -13,7 +13,9 @@ public class DataContext : IdentityDbContext<IdentityUser>
     public DataContext(DbContextOptions<DataContext> options) : base(options)
     {
     }
-    
+
+    public DbSet<Country> Countries { get; set; }
+    public DbSet<Region> Regions { get; set; }
     
     protected override void OnModelCreating(ModelBuilder modelBuilder)
     {

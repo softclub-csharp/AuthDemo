@@ -44,9 +44,11 @@ public class AccountController:ControllerBase
         return await _accountService.GetRoles();
     }
     
-    [HttpGet("assignrole")]
+    [HttpPost("assignrole")]
     public async Task<Response<AssignRoleDto>> AssignRole([FromBody] AssignRoleDto role)
     {
         return await _accountService.AssignUserRole(role);
     }
+    
+    
 }
